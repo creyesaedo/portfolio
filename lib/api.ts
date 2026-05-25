@@ -1,5 +1,3 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
-
 export interface PaginatedResponse<T> {
   data: T[]
   meta: { total: number; page: number; limit: number; total_pages: number }
@@ -69,13 +67,32 @@ export async function fetchProducts(params: ProductFilters): Promise<PaginatedRe
   if (params.date_from) query.set('date_from', params.date_from)
   if (params.date_to) query.set('date_to', params.date_to)
   if (params.search) query.set('search', params.search)
-  const res = await fetch(`${API_URL}/products?${query}`)
+  const res = await fetch(`/api/products?${query}`)
   if (!res.ok) throw new Error(`API error: ${res.status}`)
   return res.json()
 }
 
-export async function fetchPriceHistory(mlPublicId: string): Promise<PriceHistoryPoint[]> {
-  const res = await fetch(`${API_URL}/products/history?ml_public_id=${mlPublicId}`)
+export interface CatalogProduct {
+  catalog_id: string
+  name: string
+  brand: string | null
+  first_seen_at: string
+  last_seen_at: string
+}
+
+export async function fetchPriceHistory(
+  params: { ml_public_id?: string; catalog_id?: string },
+): Promise<PriceHistoryPoint[]> {
+  const q = new URLSearchParams()
+  if (params.catalog_id) q.set('catalog_id', params.catalog_id)
+  else if (params.ml_public_id) q.set('ml_public_id', params.ml_public_id)
+  const res = await fetch(`/api/products/history?${q}`)
+  if (!res.ok) throw new Error(`API error: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchCatalogProducts(search: string): Promise<CatalogProduct[]> {
+  const res = await fetch(`/api/products/catalog?search=${encodeURIComponent(search)}`)
   if (!res.ok) throw new Error(`API error: ${res.status}`)
   return res.json()
 }
@@ -83,13 +100,7 @@ export async function fetchPriceHistory(mlPublicId: string): Promise<PriceHistor
 export async function fetchCategories(country?: string): Promise<Category[]> {
   const q = new URLSearchParams({ parent_only: 'true' })
   if (country) q.set('country', country)
-  const res = await fetch(`${API_URL}/categories?${q}`)
-  if (!res.ok) throw new Error(`API error: ${res.status}`)
-  return res.json()
-}
-
-export async function fetchStats(): Promise<Stats> {
-  const res = await fetch(`${API_URL}/stats`)
+  const res = await fetch(`/api/categories?${q}`)
   if (!res.ok) throw new Error(`API error: ${res.status}`)
   return res.json()
 }

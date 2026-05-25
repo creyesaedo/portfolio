@@ -5,6 +5,7 @@ import { DashboardFilters } from './DashboardFilters'
 import { ProductsTable } from './ProductsTable'
 import { PriceHistoryChart } from './PriceHistoryChart'
 import { StatsCards } from './StatsCards'
+import { t, type Locale } from '@/lib/i18n'
 import {
   fetchProducts,
   fetchCategories,
@@ -18,11 +19,13 @@ import {
 
 interface Props {
   initialStats: Stats
+  locale: Locale
 }
 
 const DEFAULT_FILTERS: ProductFilters = { page: 1, limit: 20 }
 
-export function DashboardClient({ initialStats }: Props) {
+export function DashboardClient({ initialStats, locale }: Props) {
+  const tr = t(locale).common
   const [stats] = useState<Stats>(initialStats)
   const [filters, setFilters] = useState<ProductFilters>(DEFAULT_FILTERS)
   const [pendingFilters, setPendingFilters] = useState<ProductFilters>(DEFAULT_FILTERS)
@@ -31,7 +34,6 @@ export function DashboardClient({ initialStats }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Selected product for price history
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [history, setHistory] = useState<Awaited<ReturnType<typeof fetchPriceHistory>> | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -43,13 +45,12 @@ export function DashboardClient({ initialStats }: Props) {
       const data = await fetchProducts(f)
       setResult(data)
     } catch {
-      setError('Could not load products. Make sure the API is running.')
+      setError(tr.apiError)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [tr.apiError])
 
-  // Load categories when country changes
   useEffect(() => {
     if (!pendingFilters.country) {
       setCategories([])
@@ -60,7 +61,6 @@ export function DashboardClient({ initialStats }: Props) {
       .catch(() => setCategories([]))
   }, [pendingFilters.country])
 
-  // Initial load
   useEffect(() => {
     loadProducts(DEFAULT_FILTERS)
   }, [loadProducts])
@@ -91,10 +91,14 @@ export function DashboardClient({ initialStats }: Props) {
     }
     setSelectedProduct(product)
     setHistory(null)
-    if (!product.ml_public_id) return
+    if (!product.catalog_id && !product.ml_public_id) return
     setHistoryLoading(true)
     try {
-      const h = await fetchPriceHistory(product.ml_public_id)
+      const h = await fetchPriceHistory(
+        product.catalog_id
+          ? { catalog_id: product.catalog_id }
+          : { ml_public_id: product.ml_public_id! },
+      )
       setHistory(h)
     } catch {
       setHistory([])
@@ -105,7 +109,7 @@ export function DashboardClient({ initialStats }: Props) {
 
   return (
     <div>
-      <StatsCards stats={stats} />
+      <StatsCards stats={stats} locale={locale} />
 
       <DashboardFilters
         categories={categories}
@@ -113,6 +117,7 @@ export function DashboardClient({ initialStats }: Props) {
         onChange={(partial) => setPendingFilters((prev) => ({ ...prev, ...partial }))}
         onApply={handleApply}
         loading={loading}
+        locale={locale}
       />
 
       {error && (
@@ -123,7 +128,7 @@ export function DashboardClient({ initialStats }: Props) {
 
       {loading && !result && (
         <div className="border border-zinc-800 rounded-xl p-12 text-center text-zinc-500 text-sm">
-          Loading products…
+          {tr.loadingProducts}
         </div>
       )}
 
@@ -134,38 +139,37 @@ export function DashboardClient({ initialStats }: Props) {
             selectedId={selectedProduct?.id ?? null}
             onSelect={handleSelectProduct}
             onPageChange={handlePageChange}
+            locale={locale}
           />
         </div>
       )}
 
-      {/* Price history panel */}
       {selectedProduct && (
         <div className="mt-2">
           {historyLoading ? (
             <div className="border border-zinc-800 rounded-xl p-8 text-center text-zinc-500 text-sm mt-4">
-              Loading price history…
+              {tr.loadingHistory}
             </div>
           ) : history ? (
-            <PriceHistoryChart history={history} productName={selectedProduct.name} />
+            <PriceHistoryChart history={history} productName={selectedProduct.name} locale={locale} />
           ) : null}
         </div>
       )}
 
-      {/* DB knowledge callout */}
       {result && (
         <div className="mt-8 border border-zinc-800/50 rounded-xl p-4 bg-zinc-900/20">
           <p className="text-xs text-zinc-500 font-mono">
-            <span className="text-violet-400">SQL</span> · This table uses offset pagination:{' '}
+            <span className="text-violet-400">{tr.sql}</span> · {tr.offsetPagination}{' '}
             <span className="text-zinc-300">
               LIMIT {filters.limit} OFFSET {((filters.page ?? 1) - 1) * (filters.limit ?? 20)}
             </span>
             {filters.country && (
-              <> · filtered by <span className="text-zinc-300">country = {`'${filters.country}'`}</span></>
+              <> · {tr.filteredBy} <span className="text-zinc-300">country = {`'${filters.country}'`}</span></>
             )}
             {filters.category_id && (
-              <> AND <span className="text-zinc-300">category_id = {filters.category_id}</span></>
+              <> AND <span className="text-zinc-300">parent_id = {filters.category_id}</span></>
             )}
-            {' '}· covered by{' '}
+            {' '}· {tr.coveredBy}{' '}
             <span className="text-emerald-400">idx_products_country_category_snapshot</span>
           </p>
         </div>
