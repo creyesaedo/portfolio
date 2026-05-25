@@ -1,4 +1,5 @@
 import { formatDate, formatNumber } from '@/lib/utils'
+import { t, type Locale } from '@/lib/i18n'
 import type { Stats } from '@/lib/api'
 
 function Card({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -11,17 +12,22 @@ function Card({ label, value, sub }: { label: string; value: string; sub?: strin
   )
 }
 
-export function StatsCards({ stats }: { stats: Stats }) {
+export function StatsCards({ stats, locale }: { stats: Stats; locale: Locale }) {
+  const tr = t(locale).stats
   const topCountry = stats.by_country[0]
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-8">
-      <Card label="Total Products" value={formatNumber(stats.total_products)} sub="all snapshots" />
-      <Card label="Categories" value={formatNumber(stats.total_categories)} />
-      <Card label="Sellers" value={formatNumber(stats.total_sellers)} />
       <Card
-        label="Last Sync"
+        label={tr.totalProducts}
+        value={formatNumber(stats.total_products)}
+        sub={tr.allSnapshots}
+      />
+      <Card label={tr.categories} value={formatNumber(stats.total_categories)} />
+      <Card label={tr.sellers} value={formatNumber(stats.total_sellers)} />
+      <Card
+        label={tr.lastSync}
         value={stats.latest_snapshot ? formatDate(stats.latest_snapshot) : '—'}
-        sub={topCountry ? `top site: ${topCountry.country}` : undefined}
+        sub={topCountry ? `${tr.topSite}: ${topCountry.country}` : undefined}
       />
     </div>
   )

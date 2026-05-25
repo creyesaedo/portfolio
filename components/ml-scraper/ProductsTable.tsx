@@ -1,5 +1,6 @@
 'use client'
 
+import { t, type Locale } from '@/lib/i18n'
 import type { PaginatedResponse, Product } from '@/lib/api'
 import { formatPrice, formatNumber, formatDate } from '@/lib/utils'
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react'
@@ -10,34 +11,35 @@ interface Props {
   selectedId: number | null
   onSelect: (product: Product) => void
   onPageChange: (page: number) => void
+  locale: Locale
 }
 
-export function ProductsTable({ result, selectedId, onSelect, onPageChange }: Props) {
+export function ProductsTable({ result, selectedId, onSelect, onPageChange, locale }: Props) {
   const { data, meta } = result
+  const tr = t(locale).table
 
   return (
     <div>
-      {/* Table */}
       <div className="border border-zinc-800 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-800 bg-zinc-900/60">
                 <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3 w-8">#</th>
-                <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3">Product</th>
-                <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3 hidden md:table-cell">Category</th>
-                <th className="text-right text-xs text-zinc-500 font-medium px-4 py-3">Price</th>
-                <th className="text-right text-xs text-zinc-500 font-medium px-4 py-3 hidden sm:table-cell">Sold</th>
-                <th className="text-right text-xs text-zinc-500 font-medium px-4 py-3 hidden lg:table-cell">Rating</th>
-                <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3 hidden lg:table-cell">Site</th>
-                <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3 hidden xl:table-cell">Snapshot</th>
+                <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3">{tr.product}</th>
+                <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3 hidden md:table-cell">{tr.category}</th>
+                <th className="text-right text-xs text-zinc-500 font-medium px-4 py-3">{tr.price}</th>
+                <th className="text-right text-xs text-zinc-500 font-medium px-4 py-3 hidden sm:table-cell">{tr.sold}</th>
+                <th className="text-right text-xs text-zinc-500 font-medium px-4 py-3 hidden lg:table-cell">{tr.rating}</th>
+                <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3 hidden lg:table-cell">{tr.site}</th>
+                <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3 hidden xl:table-cell">{tr.snapshot}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/50">
               {data.length === 0 && (
                 <tr>
                   <td colSpan={8} className="text-center text-zinc-500 py-12 text-sm">
-                    No products found. Try adjusting the filters.
+                    {tr.noProducts}
                   </td>
                 </tr>
               )}
@@ -98,11 +100,11 @@ export function ProductsTable({ result, selectedId, onSelect, onPageChange }: Pr
         </div>
       </div>
 
-      {/* Pagination */}
       <div className="flex items-center justify-between mt-4">
         <p className="text-xs text-zinc-500">
-          Showing {(meta.page - 1) * meta.limit + 1}–{Math.min(meta.page * meta.limit, meta.total)} of{' '}
-          <span className="text-zinc-300 font-medium tabular-nums">{formatNumber(meta.total)}</span> results
+          {tr.showing} {(meta.page - 1) * meta.limit + 1}–{Math.min(meta.page * meta.limit, meta.total)} {tr.of}{' '}
+          <span className="text-zinc-300 font-medium tabular-nums">{formatNumber(meta.total)}</span>{' '}
+          {tr.results}
         </p>
         <div className="flex items-center gap-1">
           <button
@@ -113,7 +115,6 @@ export function ProductsTable({ result, selectedId, onSelect, onPageChange }: Pr
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          {/* Page numbers — show a window around current page */}
           {Array.from({ length: Math.min(5, meta.total_pages) }, (_, i) => {
             const start = Math.max(1, Math.min(meta.page - 2, meta.total_pages - 4))
             const page = start + i
