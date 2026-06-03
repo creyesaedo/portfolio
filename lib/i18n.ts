@@ -15,14 +15,14 @@ const en = {
   project: {
     mlScraper: {
       description:
-        'Weekly data pipeline that snapshots top-selling products across 8 MercadoLibre markets. Covers category sync via official API, web scraping with Decodo, resumable sync runs, and a PostgreSQL schema designed for time-series price analysis.',
+        'Weekly data pipeline that snapshots top-selling products across 7 MercadoLibre markets. Covers category sync via official API, web scraping with Decodo, resumable sync runs, and a PostgreSQL schema designed for time-series price analysis.',
     },
   },
   caseStudy: {
     back: '← Back to projects',
     type: 'Data Pipeline',
     intro:
-      'A weekly automated pipeline that collects top-selling product data from 8 MercadoLibre markets (Argentina, Brazil, Chile, Mexico, Colombia, Peru, Uruguay, Venezuela). Data is stored as immutable snapshots in PostgreSQL, enabling price trend and ranking analysis over time.',
+      'A weekly automated pipeline that snapshots top-selling products across 7 LatAm MercadoLibre markets (Argentina, Brazil, Chile, Mexico, Colombia, Peru, Uruguay). It bypasses ML’s JavaScript proof-of-work anti-bot through Decodo’s premium headless pool and enriches each product with both scraped PDP fields and OAuth2 API metadata. Data is stored as immutable snapshots in PostgreSQL, turning price, ranking, and review history into a single indexed query.',
     liveDashboard: 'Live Dashboard →',
     github: 'GitHub',
     sections: {
@@ -38,9 +38,14 @@ const en = {
       databaseIntro2:
         '. Products are never updated — every sync inserts new rows. This makes price and ranking history a simple',
       databaseIntro3: 'query.',
+      databaseNote:
+        'Each snapshot carries ~30 columns: pricing (with original_price/discount), a USD conversion (currency, exchange_rate, usd_price resolved once per run), market-analysis signals (ranking_position, shipping_type, is_cbt, listing tier), and enrichment merged from the PDP HTML and the ML API (sold_count, rating, brand, date_created). A separate mutable sellers table is linked via seller_id for per-seller analysis.',
+      scraping: 'Scraping & Anti-Bot',
+      scrapingIntro:
+        'MercadoLibre is not a simple HTML fetch. It serves a JavaScript proof-of-work challenge and validates TLS fingerprint and HTTP/2 frame ordering, so a plain client only ever receives the ~5–11 KB challenge page. Every request routes through Decodo with a tuned configuration — these are the cases that made the scraper reliable at ~100% success.',
       indexing: 'Index Strategy',
       indexingIntro:
-        'The products table grows by ~20 rows per category per sync. With 251 parent categories across 8 sites running weekly, a full year produces ~680,000 rows. Proper composite indexes are what keep dashboard queries under 50 ms at that scale.',
+        'The products table grows by ~20 rows per category per sync. With ~225 parent categories across 7 sites running weekly, a full year produces ~230,000 rows. Proper composite indexes are what keep dashboard queries under 50 ms at that scale.',
       indexingNote1: 'Rule of thumb applied: index columns in',
       indexingNote2: 'equality-first, range-last',
       indexingNote3:
@@ -93,6 +98,28 @@ const en = {
           'Category upsert during sync: ON CONFLICT (ml_id) requires a unique index. Also covers category resolution lookups when inserting leaf categories.',
       },
     ],
+    scraping: {
+      powChallenge: {
+        title: 'Proof-of-work bypass',
+        body: "Decodo’s standard pool returns status 613 (\"failed to scrape\") for ML — it cannot pass the anti-bot. Only the premium + headless pool clears the window.snoopy.track('/anubis') challenge, so every request routes through it with a per-site geo code.",
+      },
+      streamingRace: {
+        title: 'Streaming-SSR race',
+        body: 'ML renders via React Server Components, so the headless renderer sometimes captures only the <head> (~5–11 KB, 200 status). A wait → scroll_to_bottom → wait_for_element action chain forces the price block to paint; any response still under 50 KB is retried once.',
+      },
+      billing: {
+        title: 'Billing-aware retries',
+        body: 'Decodo bills 200/204 and non-empty 4xx, but not 5xx/613. Hard failures and expected 404s are never retried; only partial renders are, bounded to a single extra billed request to keep cost predictable.',
+      },
+      bilingual: {
+        title: 'Bilingual parsing',
+        body: 'Most fields come from language-agnostic inline JSON; the few text-based patterns (sold counts, free shipping, official store) accept both Spanish and Portuguese, so all scraped sites — including Brazil — share one parser.',
+      },
+      emptyCategories: {
+        title: 'Categories with no best-sellers',
+        body: 'Some parent categories have no /mas-vendidos page at all — vehicles (Autos, Motos y Otros) is the clearest case, since private-vehicle listings are classifieds, not catalog products. The scraper detects the 404, records 0 products, and moves on without tripping the circuit breaker. Validated and handled as expected behavior, not an error.',
+      },
+    },
     resilience: {
       resumable: {
         title: 'Resumable syncs',
@@ -105,6 +132,10 @@ const en = {
       concurrency: {
         title: 'Global concurrency cap',
         body: 'a process-wide p-limit semaphore caps parallel Decodo requests at SCRAPER_MAX_CONCURRENT (default 10), preventing accidental plan overruns.',
+      },
+      abortReasons: {
+        title: 'Typed run-level aborts',
+        body: 'beyond the breaker, the run aborts immediately on decodo_account (401/402/403 — bad token or empty wallet) and database (Neon unreachable mid-insert). Each returns a structured reason instead of silently churning through empty results and spending credit.',
       },
     },
     footer: {
@@ -183,14 +214,14 @@ const es: typeof en = {
   project: {
     mlScraper: {
       description:
-        'Pipeline de datos semanal que registra los productos más vendidos en 8 mercados de MercadoLibre. Incluye sincronización de categorías vía API oficial, scraping con Decodo, ejecuciones reanudables y un esquema PostgreSQL diseñado para análisis de precios en el tiempo.',
+        'Pipeline de datos semanal que registra los productos más vendidos en 7 mercados de MercadoLibre. Incluye sincronización de categorías vía API oficial, scraping con Decodo, ejecuciones reanudables y un esquema PostgreSQL diseñado para análisis de precios en el tiempo.',
     },
   },
   caseStudy: {
     back: '← Volver a proyectos',
     type: 'Pipeline de Datos',
     intro:
-      'Pipeline automatizado semanal que recopila datos de los productos más vendidos en 8 mercados de MercadoLibre (Argentina, Brasil, Chile, México, Colombia, Perú, Uruguay, Venezuela). Los datos se almacenan como snapshots inmutables en PostgreSQL, permitiendo análisis de tendencias de precios y rankings a lo largo del tiempo.',
+      'Pipeline automatizado semanal que toma snapshots de los productos más vendidos en 7 mercados de MercadoLibre en LatAm (Argentina, Brasil, Chile, México, Colombia, Perú, Uruguay). Sortea el anti-bot proof-of-work en JavaScript de ML mediante el pool premium headless de Decodo y enriquece cada producto con campos scrapeados del PDP y metadata de la API OAuth2. Los datos se guardan como snapshots inmutables en PostgreSQL, convirtiendo el historial de precios, rankings y reseñas en una sola consulta indexada.',
     liveDashboard: 'Dashboard en Vivo →',
     github: 'GitHub',
     sections: {
@@ -206,9 +237,14 @@ const es: typeof en = {
       databaseIntro2:
         '. Los productos nunca se actualizan — cada sincronización inserta nuevas filas. Esto convierte el historial de precios y rankings en una simple consulta',
       databaseIntro3: '.',
+      databaseNote:
+        'Cada snapshot lleva ~30 columnas: precios (con original_price/descuento), una conversión a USD (currency, exchange_rate, usd_price resuelta una vez por corrida), señales de market analysis (ranking_position, shipping_type, is_cbt, tier de publicación) y enriquecimiento combinado del HTML del PDP y la API de ML (sold_count, rating, brand, date_created). Una tabla sellers mutable aparte se enlaza vía seller_id para análisis por vendedor.',
+      scraping: 'Scraping y Anti-Bot',
+      scrapingIntro:
+        'MercadoLibre no es un simple fetch de HTML. Sirve un desafío proof-of-work en JavaScript y valida el fingerprint TLS y el orden de frames HTTP/2, así que un cliente plano solo recibe la página de desafío de ~5–11 KB. Cada petición pasa por Decodo con una configuración afinada — estos son los casos que hicieron al scraper confiable con ~100% de éxito.',
       indexing: 'Estrategia de Índices',
       indexingIntro:
-        'La tabla de productos crece ~20 filas por categoría por sincronización. Con 251 categorías padre en 8 sitios ejecutándose semanalmente, un año completo produce ~680,000 filas. Los índices compuestos adecuados son lo que mantiene las consultas del dashboard por debajo de 50 ms a esa escala.',
+        'La tabla de productos crece ~20 filas por categoría por sincronización. Con ~225 categorías padre en 7 sitios ejecutándose semanalmente, un año completo produce ~230,000 filas. Los índices compuestos adecuados son lo que mantiene las consultas del dashboard por debajo de 50 ms a esa escala.',
       indexingNote1: 'Regla aplicada: indexar columnas en orden',
       indexingNote2: 'igualdad-primero, rango-último',
       indexingNote3: 'dentro de cada compuesto. Una consulta sobre',
@@ -259,6 +295,28 @@ const es: typeof en = {
           'Upsert de categorías durante la sincronización: ON CONFLICT (ml_id) requiere un índice único. También cubre búsquedas de resolución de categorías al insertar categorías hoja.',
       },
     ],
+    scraping: {
+      powChallenge: {
+        title: 'Bypass del proof-of-work',
+        body: "El pool standard de Decodo devuelve status 613 (\"failed to scrape\") para ML — no pasa el anti-bot. Solo el pool premium + headless supera el desafío window.snoopy.track('/anubis'), así que toda petición pasa por él con un código geo por sitio.",
+      },
+      streamingRace: {
+        title: 'Carrera del streaming-SSR',
+        body: 'ML renderiza con React Server Components, así que el renderer headless a veces captura solo el <head> (~5–11 KB, status 200). Una cadena de acciones wait → scroll_to_bottom → wait_for_element fuerza el render del bloque de precio; cualquier respuesta aún bajo 50 KB se reintenta una vez.',
+      },
+      billing: {
+        title: 'Reintentos conscientes del cobro',
+        body: 'Decodo cobra 200/204 y 4xx con cuerpo, pero no 5xx/613. Los fallos duros y los 404 esperados nunca se reintentan; solo los renders parciales, acotados a una sola petición extra cobrada para mantener el costo predecible.',
+      },
+      bilingual: {
+        title: 'Parsing bilingüe',
+        body: 'La mayoría de los campos vienen de JSON inline agnóstico al idioma; los pocos patrones de texto (ventas, envío gratis, tienda oficial) aceptan español y portugués, así que todos los sitios scrapeados — incluido Brasil — comparten un solo parser.',
+      },
+      emptyCategories: {
+        title: 'Categorías sin más vendidos',
+        body: 'Algunas categorías padre no tienen página /mas-vendidos — vehículos (Autos, Motos y Otros) es el caso más claro, ya que las publicaciones de vehículos particulares son clasificados, no productos de catálogo. El scraper detecta el 404, registra 0 productos y sigue sin disparar el circuit breaker. Validado y manejado como comportamiento esperado, no un error.',
+      },
+    },
     resilience: {
       resumable: {
         title: 'Sincronizaciones reanudables',
@@ -271,6 +329,10 @@ const es: typeof en = {
       concurrency: {
         title: 'Límite global de concurrencia',
         body: 'un semáforo p-limit a nivel de proceso limita las peticiones paralelas a Decodo en SCRAPER_MAX_CONCURRENT (por defecto 10), evitando sobrepasar el plan accidentalmente.',
+      },
+      abortReasons: {
+        title: 'Abortos tipados a nivel de corrida',
+        body: 'más allá del breaker, la corrida aborta de inmediato ante decodo_account (401/402/403 — token inválido o saldo agotado) y database (Neon inalcanzable durante un insert). Cada uno devuelve un reason estructurado en vez de seguir gastando crédito sobre resultados vacíos.',
       },
     },
     footer: {

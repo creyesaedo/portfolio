@@ -91,19 +91,21 @@ export default async function MlScraperCaseStudy({
 
       <Section title={cs.sections.architecture}>
         <p className="text-zinc-400 text-sm mb-4 leading-relaxed">{cs.sections.architectureIntro}</p>
-        <CodeBlock>{`GitHub Actions (cron: mon 03:00 UTC)
+        <CodeBlock>{`GitHub Actions (cron: mon 03:00 UTC)  ·  CLI  ·  POST /sync/run/:siteId
     │
     ▼
 SyncRunnerService.run(siteId)
     │
-    ├─ 1. Category sync (if DB is empty)
-    │      ML Official API → upsert root + child categories
+    ├─ 1. Category sync (only if DB has 0 categories for the site)
+    │      ML Official API (OAuth2) → upsert root + leaf categories
     │
     └─ 2. Product collection (p-limit 3 categories in parallel)
            │
-           ├─ Decodo scraper → category page → 20 product URLs
-           ├─ Decodo scraper → 20 product pages (p-limit 8)
-           ├─ ML API → catalog enrichment (date_created, brand)
+           ├─ Decodo (premium + headless, geo per site)
+           │     → /mas-vendidos page → 0–20 product URLs
+           │     → each product page (p-limit 8)
+           ├─ ML API → catalog metadata (date_created)
+           ├─ FX rate (USD) resolved once per run → usd_price
            └─ INSERT immutable snapshot rows → products table`}</CodeBlock>
       </Section>
 
@@ -115,11 +117,11 @@ SyncRunnerService.run(siteId)
           <span className="text-white">{cs.sections.databaseHighlight2}</span>
           {cs.sections.databaseIntro2}
           <code className="bg-zinc-800 text-zinc-300 px-1 rounded text-xs mx-1">
-            WHERE ml_public_id = X ORDER BY snapshot_date
+            WHERE catalog_id = X ORDER BY snapshot_date
           </code>
           {cs.sections.databaseIntro3}
         </p>
-        <CodeBlock>{`-- categories: two-level tree
+        <CodeBlock>{`-- categories: two-level tree (root → leaf)
 CREATE TABLE categories (
   id        SERIAL PRIMARY KEY,
   ml_id     VARCHAR(50) UNIQUE NOT NULL,  -- e.g. "MLC1648"
@@ -131,21 +133,68 @@ CREATE TABLE categories (
 -- products: immutable snapshots (never UPDATE, always INSERT)
 CREATE TABLE products (
   id               SERIAL PRIMARY KEY,
-  ml_public_id     VARCHAR(50),            -- stable across snapshots
   name             VARCHAR(500) NOT NULL,
   price            DECIMAL(14,2) NOT NULL,
-  original_price   DECIMAL(14,2),
+  original_price   DECIMAL(14,2),          -- pre-discount price
   discount_pct     INT,
-  sold_count       INT,
-  ranking_position INT,
+  currency         VARCHAR(3),             -- ISO 4217, e.g. "CLP"
+  usd_price        DECIMAL(14,2),          -- price / exchange_rate
+  ranking_position INT,                    -- 1..20 on /mas-vendidos
+  sold_count       INT,                    -- "+X mil vendidos" (floor)
   rating           DECIMAL(3,2),
   review_count     INT,
+  shipping_type    VARCHAR(20),            -- full | cross_border | free
+  is_cbt           BOOLEAN DEFAULT false,  -- cross-border listing
+  catalog_id       VARCHAR(50),            -- product concept (buy-box)
+  ml_public_id     VARCHAR(50),            -- winning listing
   country          VARCHAR(10),
-  snapshot_date    TIMESTAMP NOT NULL,     -- when this row was collected
+  snapshot_date    TIMESTAMP NOT NULL,     -- time axis for history
   category_id      INT REFERENCES categories(id),
   seller_id        INT REFERENCES sellers(id)
-  -- ...more enrichment fields
+  -- + brand, date_created, installments_*, available_quantity, ...
 );`}</CodeBlock>
+        <p className="text-zinc-500 text-xs mt-3 leading-relaxed">{cs.sections.databaseNote}</p>
+      </Section>
+
+      <Section title={cs.sections.scraping}>
+        <p className="text-zinc-400 text-sm mb-5 leading-relaxed">{cs.sections.scrapingIntro}</p>
+        <div className="space-y-3 text-sm text-zinc-400">
+          <div className="flex gap-3">
+            <span className="text-violet-400 shrink-0">🛡️</span>
+            <span>
+              <span className="text-white">{cs.scraping.powChallenge.title}</span>{' '}—{' '}
+              {cs.scraping.powChallenge.body}
+            </span>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-amber-400 shrink-0">⏳</span>
+            <span>
+              <span className="text-white">{cs.scraping.streamingRace.title}</span>{' '}—{' '}
+              {cs.scraping.streamingRace.body}
+            </span>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-emerald-400 shrink-0">💲</span>
+            <span>
+              <span className="text-white">{cs.scraping.billing.title}</span>{' '}—{' '}
+              {cs.scraping.billing.body}
+            </span>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-blue-400 shrink-0">🌎</span>
+            <span>
+              <span className="text-white">{cs.scraping.bilingual.title}</span>{' '}—{' '}
+              {cs.scraping.bilingual.body}
+            </span>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-zinc-400 shrink-0">🚗</span>
+            <span>
+              <span className="text-white">{cs.scraping.emptyCategories.title}</span>{' '}—{' '}
+              {cs.scraping.emptyCategories.body}
+            </span>
+          </div>
+        </div>
       </Section>
 
       <Section title={cs.sections.indexing}>
@@ -218,6 +267,13 @@ prisma.product.count({ where });         // runs in parallel via Promise.all`}</
             <span>
               <span className="text-white">{cs.resilience.concurrency.title}</span>{' '}—{' '}
               {cs.resilience.concurrency.body}
+            </span>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-red-400 shrink-0">🛑</span>
+            <span>
+              <span className="text-white">{cs.resilience.abortReasons.title}</span>{' '}—{' '}
+              {cs.resilience.abortReasons.body}
             </span>
           </div>
         </div>
