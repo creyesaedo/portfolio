@@ -402,5 +402,5 @@ const es: typeof en = {
 const translations = { en, es }
 
 export function t(locale: Locale) {
-  return translations[locale]
+  return translations[locale] ?? translations[DEFAULT_LOCALE]
 }

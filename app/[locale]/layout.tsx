@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
 import { Navbar } from '@/components/layout/Navbar'
 import { LOCALES, type Locale } from '@/lib/i18n'
 
 export const metadata: Metadata = {
-  title: 'Cristian Reyes — Portfolio',
-  description: 'Backend Engineer — NestJS, PostgreSQL, TypeScript',
+  title: 'Cristian Alejandro Reyes Aedo — Portfolio - Portafolio',
+  description: 'Backend Engineer — NestJS, PostgreSQL, TypeScript. Ingeniero de Backend — NestJS, PostgreSQL, TypeScript.',
 }
 
 export function generateStaticParams() {
@@ -19,6 +20,7 @@ export default async function LocaleLayout({
   params: Promise<{ locale: Locale }>
 }) {
   const { locale } = await params
+  if (!LOCALES.includes(locale)) notFound()
   return (
     <html lang={locale}>
       <body>
